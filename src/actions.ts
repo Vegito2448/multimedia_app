@@ -225,3 +225,19 @@ export const updateUserProfile = async (state: { error?: string; success: boolea
   revalidatePath(`/${collection}`);
   return state;
 };
+
+export const findByCollectionAndTerm = async (collection: string, term: string) => {
+
+  const session = await getSession();
+
+  const response = await fetch(`${apiRoute}/find/${collection}/${term}`, {
+    headers: {
+      'x-token': session.jwtToken
+    } as HeadersWithToken
+  });
+
+  const data = await response.json();
+
+  return data;
+
+};
