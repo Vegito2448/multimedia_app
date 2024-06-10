@@ -1,8 +1,9 @@
 import { getSession } from "@/actions";
+import { User } from "@/types";
 import Link from "next/link";
 import { IoPencil } from "react-icons/io5";
+import { Button } from "./Button";
 import { Chip } from "./Chip";
-import { DeleteButton } from "./DeleteButton";
 
 interface TableProps {
   data: any;
@@ -28,7 +29,6 @@ export const Table = async ({
 
   return (
     <div className="md:px-32 py-8 w-full">
-      <div className="shadow overflow-hidden rounded border-b border-gray-200 w-fit">
         {data.length ? <table className="min-w-full bg-white">
           <thead className="bg-gray-800 text-white">
             <tr>
@@ -47,30 +47,39 @@ export const Table = async ({
 
                 console.log(`🚀 ~ data.map ~ item:`, item);
 
-
                 return (
-                  <tr key={index} className={index % 2 === 0 ? 'bg-gray-100' : ''}>
-                    {/* map with headers */}
+                  <tr key={item._id + index} className={index % 2 === 0 ? 'bg-gray-100' : ''}>
+
                     {
-                      headers.map((header, index) => (
-                        <td key={item?._id} className="w-1/3 text-left py-3 px-4">{collection === 'categories' && header === 'createdBy' || header === 'updatedBy' || header === 'deletedBy' ? (item[header] as { name: string; })?.name :
-                          typeof item[header] === 'boolean' &&
-                          <Chip color={item[header] ? "green" : 'red'} message={
-                            item[header] ? 'Active' : 'Inactive'
-                          } />
-                          ||
-                          item[header] as string}</td>
+                      headers.map((header: keyof typeof item, index) => (
+                        <td key={item?._id + index} className="text-left py-3 px-2 ">{
+                          (header === 'createdBy' || header === 'updatedBy' || header === 'deletedBy') ?
+
+                            (item[header] as User)?.userName :
+
+                            (typeof item[header] === 'boolean' &&
+                              <Chip color={item[header] ? "green" : 'red'} message={
+                                item[header] ? 'Active' : 'Inactive'
+                              } />
+                            ) ||
+                            (item[header].length > 18 &&
+                              <span className="truncate">
+                                {item[header].slice(0, 3)}...
+                              </span>
+                            ) ||
+                            item[header] as string}
+                        </td>
                       ))
                     }
                     {
                       cruPermissions && <td className="w-1/3 text-left py-3 px-4 flex flex-1">
-                        <Link href={`categories/${item?._id || item?.id || item?.uid}`} className="flex px-3 py-2 bg-blue-400 mr-1 text-white font-semibold rounded">
+                        <Link href={`categories/${item?._id || item?.id || item?.uid}`} className="px-4 py-1 text-xs font-medium leading-6 text-center text-white uppercase transition bg-sky-500 rounded shadow ripple hover:shadow-lg hover:bg-sky-700 focus:outline-none flex place-items-center">
                           <IoPencil />
                           <span className="ml-1">Edit</span>
                         </Link>
-                        {deletePermissions && <DeleteButton id={
+                        {deletePermissions && <Button id={
                           item?._id || item?.id || item?.uid
-                        } collection={collection} />}
+                        } collection={collection} title="Delete" />}
                       </td>
 
                     }
@@ -83,8 +92,7 @@ export const Table = async ({
           <div className="flex justify-center items-center h-32">
             <span className="text-2xl text-gray-500">No data</span>
           </div>
-        }
-      </div>
+      }
     </div>
   );
 };

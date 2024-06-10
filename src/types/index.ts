@@ -35,7 +35,8 @@ export interface Content {
 
 export interface UsersResponse {
   total: number;
-  users: User[];
+  users?: User[];
+  user?: User;
 }
 
 export interface User {

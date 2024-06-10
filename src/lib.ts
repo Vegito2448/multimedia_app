@@ -1,17 +1,19 @@
 import { SessionOptions } from "iron-session";
+import { User } from "./types";
 
-export interface SessionData {
-  userId?: string;
-  username?: string;
-  img?: string;
-  role?: string;
-  isBlocked?: boolean;
-  isLoggedIn: boolean;
+export interface SessionData extends User {
   jwtToken?: string;
 }
 
 export const defaultSession: SessionData = {
-  isLoggedIn: false
+  name: "",
+  userName: "",
+  mail: "",
+  status: false,
+  google: false,
+  uid: "",
+  role: "",
+  image: ""
 };
 
 export const sessionOptions: SessionOptions = {

@@ -8,10 +8,6 @@ import { redirect } from "next/navigation";
 import { apiRoute } from "./api";
 import { User } from "./types";
 
-let username = "john";
-let isPro = 'admin';
-let isBlocked = true;
-
 export interface HeadersWithToken extends Headers {
   'x-token': string;
 }
@@ -43,56 +39,52 @@ export interface AuthLoggingUser {
 export const getSession = async () => {
   const session = await getIronSession<SessionData>(cookies(), sessionOptions);
 
-  if (!session.isLoggedIn) {
-    session.isLoggedIn = defaultSession.isLoggedIn;
+  if (!session.uid) {
+    Object.assign(session, defaultSession);
   }
-
-  // CHECK THE USER IN THE DB
-  session.isBlocked = isBlocked;
-  session.role = isPro;
 
   return session;
 };
 
 export const login = async (prevState = { error: undefined }, formData: FormData) => {
-  try {
-    const session = await getSession();
+  const session = await getSession();
+  const response = await fetch("http://localhost:8080/api/auth/login", {
+    method: "POST",
+    body: formData,
+    cache: "no-cache",
+  });
+  const data: AuthLoggingUser = await response.json();
 
-    const response = await fetch(apiRoute + "/auth/login", {
-      method: "POST",
-      body: formData,
-      cache: "no-cache",
+  console.log(`🚀 ~ login ~ data:`, data);
+
+
+  let errorMessage;
+
+  if (data?.msg || data.errors) {
+    errorMessage = data.errors?.errors?.length ? data.errors.errors.map((error: Error) => error.msg).join(", ") : data.msg;
+  }
+
+
+  if (errorMessage) {
+
+    Object.assign(prevState, { error: errorMessage });
+
+  } else if (data.user) {
+
+    Object.assign(session, {
+      ...data.user,
+      jwtToken: data.token,
     });
 
-    const data = await response.json();
+    await session.save();
 
 
+    Object.assign(prevState, { success: true });
 
-    let errorMessage = '';
-    if (data?.msg || data.errors) {
-      errorMessage = data.errors?.errors.length ? data.errors.errors.map((error: Error) => error.msg).join(", ") : data.msg;
-    }
-
-    if (errorMessage) {
-      Object.assign(prevState, { error: errorMessage });
-    } else if (data.user) {
-      session.username = data.user.userName;
-      session.userId = data.user.uid;
-      session.isLoggedIn = true;
-      session.role = data.user.role;
-      session.isBlocked = data.user.status;
-      session.jwtToken = data.token;
-      await session.save();
-      console.log(`🚀 ~ login ~ data:`, data);
-      Object.assign(prevState, { success: true });
-    }
+  }
 
     return prevState;
 
-  } catch (error) {
-    console.error('Login failed:', error);
-    return { error: 'An error occurred during login' };
-  }
 };
 
 export const register = async (prevState: {
@@ -100,13 +92,17 @@ export const register = async (prevState: {
   success?: boolean;
 } = { error: undefined }, formData: FormData) => {
   const session = await getSession();
-  if (session.isLoggedIn && session.userId) {
-    formData.append('createdBy', session.userId);
+
+  if (session.uid) {
+    formData.append('createdBy', session.uid);
   }
   const response = await fetch("http://localhost:8080/api/users/", {
     method: "POST",
     body: formData,
     cache: "no-cache",
+    headers: {
+      'x-token': session.jwtToken
+    } as HeadersWithToken
   });
 
   const data = await response.json();
@@ -116,16 +112,7 @@ export const register = async (prevState: {
 
   if (data?.name) {
     prevState.success = true;
-    return prevState;
   }
-
-
-  // if (data) {
-  //   redirect("/login");
-  // }
-  // try {
-
-
 
   let errorMessage = '';
 
@@ -139,16 +126,10 @@ export const register = async (prevState: {
 
   if (errorMessage) {
     prevState.error = errorMessage;
-    return prevState;
   }
 
+  return prevState;
 
-  //   return prevState;
-
-  // } catch (error: any) {
-  //   console.error('Registration failed:', error);
-  //   return { ...prevState, error: 'An error occurred during registration, error:' + error.message };
-  // }
 };
 
 
@@ -156,27 +137,6 @@ export const logout = async () => {
   const session = await getSession();
   session.destroy();
   redirect("/login");
-};
-
-export const changePremium = async () => {
-  const session = await getSession();
-
-  const isPro = session.role;
-  session.role = isPro;
-  await session.save();
-  revalidatePath("/profile");
-};
-
-export const changeUsername = async (formData: FormData) => {
-  const session = await getSession();
-
-  const newUsername = formData.get("username") as string;
-
-  username = newUsername;
-
-  session.username = username;
-  await session.save();
-  revalidatePath("/profile");
 };
 
 export const deleteItem = async (formData: FormData) => {
@@ -201,4 +161,67 @@ export const deleteItem = async (formData: FormData) => {
     });
   }
   revalidatePath(`/${collection}`);
+};
+
+export const updateItem = async (state: { error?: string; success: boolean; id: string, collection: string; }, formData: FormData) => {
+
+  const { id, collection } = state;
+
+  const session = await getSession();
+
+  if (session.role === 'admin' || session.role === 'creator') {
+    const response = await fetch(`${apiRoute}/${collection}/${id}`, {
+      method: "PUT",
+      body: formData,
+      headers: {
+        'x-token': session.jwtToken
+      } as HeadersWithToken
+    });
+
+    const data = await response.json();
+
+    if (!data?.user && data?.msg) {
+      Object.assign(state, { error: 'An error occurred during update, error: ' + data.msg });
+    }
+
+  }
+  revalidatePath(`/${collection}`);
+  return state;
+};
+
+export const updateUserProfile = async (state: { error?: string; success: boolean; id: string, collection: string; }, formData: FormData) => {
+
+  console.log(`🚀 ~ updateUserProfile ~ formData:`, formData);
+
+
+  const { id, collection } = state;
+
+  const session = await getSession();
+
+  if (session.role === 'admin' || session.role === 'creator') {
+    const response = await fetch(`${apiRoute}/${collection}/${id}`, {
+      method: "PUT",
+      body: formData,
+      headers: {
+        'x-token': session.jwtToken
+      } as HeadersWithToken
+    });
+
+    const data = await response.json();
+
+    console.log(`🚀 ~ updateUserProfile ~ data:`, data);
+
+
+    if (!data?.user && data?.msg) {
+      Object.assign(state, { error: 'An error occurred during update, error: ' + data.msg });
+    } else {
+      Object.assign(state, { success: true });
+      Object.assign(session, data.user);
+
+      await session.save();
+    }
+
+  }
+  revalidatePath(`/${collection}`);
+  return state;
 };

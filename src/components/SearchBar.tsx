@@ -1,20 +1,18 @@
+import { IoSearch } from "react-icons/io5";
 
-export const SearchBar = () => {
+interface Props {
+  placeholder: string;
+}
+
+export const SearchBar = ({ placeholder }: Props) => {
   return (
-    <div className="flex items-center max-w-md mx-auto bg-white rounded-lg " x-data="{ search: '' }">
-      <div className="w-full">
-        <input type="search" className="w-full px-4 py-1 text-gray-800 rounded-full focus:outline-none"
-          placeholder="search" x-model="search" />
-      </div>
-      <div>
-        <button type="submit" className="flex items-center bg-blue-500 justify-center w-12 h-12 text-white rounded-r-lg">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-        </button>
-      </div>
+    <div className="pt-2 relative mx-auto text-gray-600">
+      <input className="border-2 border-gray-300 bg-white h-10 px-5 pr-16 rounded-lg text-sm focus:outline-none"
+        type="search" name="search" placeholder={placeholder} />
+      <button className="absolute right-0 top-0 mt-5 mr-4">
+        <IoSearch
+        />
+      </button>
     </div>
   );
 };
